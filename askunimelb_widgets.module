@@ -1,0 +1,265 @@
+<?php
+/**
+ * @file
+ */
+
+/**
+ * Implements hook_enable().
+ */
+function askunimelb_widgets_enable() {
+  drupal_set_message(t('ask.unimelb Widgets has now been enabled. You need to !configure the ask.unimelb Widgets block settings before you use it.', array('!configure' => l(t('configure and save'), 'admin/build/block'))));
+}
+
+/**
+ * Implements hook_init().
+ *
+ * Push an empty entry to the front of the array. This ensures the behaviours
+ * property always contain an array of objects, even if there is only a single
+ * block on the page. Fixes [#1715296].
+ */
+function askunimelb_widgets_init() {
+  drupal_add_js('//studentadmin-unimelb.widget.custhelp.com/euf/rightnow/RightNow.Client.js', 'external');
+}
+
+function askunimelb_widgets_permission() {
+  return array(
+    'administer ask.unimelb widgets' => array(
+      'title' => t('Administer ask.unimelb Widgets'),
+    )
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function askunimelb_widgets_menu() {
+  $items = array();
+  $items['admin/config/services/askunimelb_widgets'] = array(
+    'title' => 'ask.unimelb Widgets',
+    'description' => t('Configure ask.unimelb Widget settings'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('askunimelb_widgets_admin_settings'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer ask.unimelb widgets'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'askunimelb_widgets.admin.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function askunimelb_widgets_block_info() {
+  for ($delta = 0; $delta < variable_get('askunimelb_widgets_blocks', 1); $delta++) {
+    $settings = variable_get('askunimelb_widgets_block_' . $delta, askunimelb_widgets_defaults($delta));
+    $blocks[$delta]['info'] = $settings['description'];
+    $blocks[$delta]['cache'] = DRUPAL_CACHE_PER_USER;
+  }
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_configure().
+ */
+function askunimelb_widgets_block_configure($delta) {
+  $settings = variable_get('askunimelb_widgets_block_' . $delta, askunimelb_widgets_defaults($delta));
+
+  $form['description'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Block description'),
+    '#default_value' => $settings['description'],
+    '#description' => t('A brief description of your block. Used on the <a href="@block-overview-page">block overview page</a>.', array('@block-overview-page' => url('admin/build/block')))
+  );
+  $form['p'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Categories to display'),
+    '#options' => askunimelb_widgets_categories(),
+    '#default_value' => $settings['p'],
+  );
+  $form['q'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Keyword'),
+    '#default_value' => $settings['q'],
+  );
+  $form['c'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Custom report'),
+    '#default_value' => $settings['c'],
+    '#access' => FALSE,
+  );
+  $form['search_box'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show search bar'),
+    '#default_value' => $settings['search_box'],
+  );
+  $form['number_answers'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Number of FAQs'),
+    '#default_value' => $settings['number_answers'],
+    '#size' => 3,
+    '#maxlength' => 3,
+    '#description' => t('The width of the cloud menu in pixels.'),
+  );
+  $form['truncate_size'] = array(
+    '#type' => 'textfield',
+    '#title' => t('FAQ description truncation'),
+    '#default_value' => $settings['truncate_size'],
+    '#size' => 3,
+    '#maxlength' => 4,
+    '#description' => t('The height of the cloud menu in pixels.'),
+  );
+  $form['desc'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show FAQ description'),
+    '#default_value' => $settings['desc'],
+  );
+  $form['navigation'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show "more" link'),
+    '#default_value' => $settings['navigation'],
+    '#value' => TRUE,
+  );
+  $form['target'] = array(
+    '#type' => 'select',
+    '#title' => t('FAQ link target'),
+    '#default_value' => $settings['target'],
+    '#options' => array(
+      '_self' => t('Current window or tab'),
+      '_blank' => t('New window or tab'),
+    ),
+  );
+  $form['persist_prodcat'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Persist with categories across searches'),
+    '#default_value' => $settings['persist_prodcat'],
+  );
+  return $form;
+}
+
+/**
+ * Implements hook_block_save().
+ */
+function askunimelb_widgets_block_save($delta = '', $edit = array()) {
+  $settings = array(
+    'description'     => $edit['description'],
+    'p'               => $edit['p'],
+    'q'               => $edit['q'],
+    'c'               => $edit['c'],
+    'search_box'      => $edit['search_box'],
+    'number_answers'  => $edit['number_answers'],
+    'truncate_size'   => $edit['truncate_size'],
+    'desc'            => $edit['description'],
+    'navigation'      => $edit['navigation'],
+    'target'          => $edit['target'],
+    'persist_prodcat' => $edit['persist_prodcat'],
+  );
+  variable_set('askunimelb_widgets_block_' . $delta, $settings);
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function askunimelb_widgets_block_view($delta = '') {
+  // Load settings for the current block.
+  $settings = variable_get('askunimelb_widgets_block_' . $delta, askunimelb_widgets_defaults($delta));
+
+  // Add the JavaScript that defines the block.
+  _askunimelb_widgets_js_add($delta, $settings);
+
+  // Output block HTML
+  return array(
+    'subject' => t('ask.unimelb Widget'),
+    'content' => '<div id="askunimelb-widgets-widget-' . $delta . '"></div>',
+  );
+}
+
+/**
+ * Helper that adds the wiget JS to the page.
+ */
+function _askunimelb_widgets_js_add($delta, $settings) {
+  $js = "jQuery(document).ready(function () { RightNow.Client.Controller.addComponent(
+  {
+    p:               '". implode(';', array_filter($settings['p'])) . "',
+    q:               '{$settings['q']}',
+    c:               '{$settings['c']}',
+    search_box:      '". (empty($settings['search_box']) ? 'false' : 'true') . "',
+    number_answers:  '{$settings['number_answers']}',
+    truncate_size:   '{$settings['truncate_size']}',
+    description:     '". (empty($settings['desc']) ? 'false' : 'true') . "',
+    navigation:      '". (empty($settings['navigation']) ? 'false' : 'true') . "',
+    target:          '{$settings['target']}',
+    persist_prodcat: '". (empty($settings['persist_prodcat']) ? 'false' : 'true') . "',
+    div_id:          'askunimelb-widgets-widget-{$delta}',
+    instance_id:     'skw_{$delta}',
+    // Customising code lines go here
+    module:          'KnowledgeSyndication',
+    type:            3
+  },
+  '//studentadmin-unimelb.widget.custhelp.com/ci/ws/get'
+)});";
+
+  drupal_add_js($js, array('type' => 'inline'));
+}
+
+/**
+ * Helper that returns an array of default settings.
+ */
+function askunimelb_widgets_defaults($delta = 0) {
+  return array(
+    'description'     => t('ask.unimelb Widget: Block @delta', array('@delta' => $delta)),
+    'p'               => '1301,1306',
+    'q'               => '',
+    'c'               => '',
+    'search_box'      => FALSE,
+    'number_answers'  => 10,
+    'truncate_size'   => 100,
+    'desc'            => FALSE,
+    'navigation'      => FALSE,
+    'target'          => '_blank',
+    'persist_prodcat' => TRUE,
+  );
+}
+
+/**
+ * Helper to list categories.
+ */
+function askunimelb_widgets_categories() {
+  return array(
+    '1301,1306' => t('Studying: Advice & Guidance'),
+    '1301,1303' => t('Studying: Assessment & Results'),
+    '1301,1307' => t('Studying: Learning Resources'),
+    '1301,1304' => t('Studying: Special Consideration'),
+    '1301,1302' => t('Studying: Exchange & Study Abroad'),
+    '1301,1305' => t('Studying: Complaints & Grievances'),
+
+    '1308,1313' => t('Managing my enrolment: My Details'),
+    '1308,1311' => t('Managing my enrolment: Ongoing Enrolment'),
+    '1308,1314' => t('Managing my enrolment: Timetables'),
+    '1308,1310' => t('Managing my enrolment: Fees'),
+    '1308,1312' => t('Managing my enrolment: Research Management'),
+    '1308,1309' => t('Managing my enrolment: Taking a Break'),
+
+    '1294,1299' => t('Getting help: IT Assistance'),
+    '1294,1297' => t('Getting help: Getting Around & Locations'),
+    '1294,1296' => t('Getting help: Finances & Scholarships'),
+    '1294,1295' => t('Getting help: Accommodation & Housing'),
+    '1294,1298' => t('Getting help: Health & Welfare'),
+    '1294,1300' => t('Getting help: Legal Assistance'),
+
+    '1289,1290' => t('Starting and completing: Enrolling in a New Course'),
+    '1289,1291' => t('Starting and completing: Transferring to a New Course'),
+    '1289,1292' => t('Starting and completing: Completing a Course'),
+    '1289,1293' => t('Starting and completing: Academic Statements'),
+
+    '1283,1285' => t('Extracurricular: Clubs & Societies'),
+    '1283,1286' => t('Extracurricular: Sport & Fitness'),
+    '1283,1288' => t('Extracurricular: Leadership & Volunteering'),
+    '1283,1287' => t('Extracurricular: Jobs & Employment'),
+    '1283,1284' => t('Extracurricular: Art & Culture'),
+
+    '1315,1316' => t('Future study: Course Information'),
+    '1315,1317' => t('Future study: Application & Admission'),
+    '1315,1318' => t('Future study: More About Melbourne'),
+  );
+}
