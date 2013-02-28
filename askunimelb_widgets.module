@@ -19,6 +19,7 @@ function askunimelb_widgets_enable() {
  */
 function askunimelb_widgets_init() {
   drupal_add_js('//studentadmin-unimelb.widget.custhelp.com/euf/rightnow/RightNow.Client.js', 'external');
+  drupal_add_js(drupal_get_path('module', 'askunimelb_widgets') . '/askunimelb_widgets.js', 'file');
 }
 
 function askunimelb_widgets_permission() {
@@ -86,7 +87,7 @@ function askunimelb_widgets_block_configure($delta) {
     '#type' => 'textfield',
     '#title' => t('Custom report'),
     '#default_value' => $settings['c'],
-    '#access' => FALSE,
+    '#disabled' => TRUE,
   );
   $form['search_box'] = array(
     '#type' => 'checkbox',
@@ -118,7 +119,6 @@ function askunimelb_widgets_block_configure($delta) {
     '#type' => 'checkbox',
     '#title' => t('Show "more" link'),
     '#default_value' => $settings['navigation'],
-    '#value' => TRUE,
   );
   $form['target'] = array(
     '#type' => 'select',
@@ -143,13 +143,13 @@ function askunimelb_widgets_block_configure($delta) {
 function askunimelb_widgets_block_save($delta = '', $edit = array()) {
   $settings = array(
     'description'     => $edit['description'],
-    'p'               => $edit['p'],
-    'q'               => $edit['q'],
-    'c'               => $edit['c'],
+    'p'               => array_filter($edit['p']),
+    'q'               => check_plain($edit['q']),
+    'c'               => check_plain($edit['c']),
     'search_box'      => $edit['search_box'],
-    'number_answers'  => $edit['number_answers'],
-    'truncate_size'   => $edit['truncate_size'],
-    'desc'            => $edit['description'],
+    'number_answers'  => check_plain($edit['number_answers']),
+    'truncate_size'   => check_plain($edit['truncate_size']),
+    'desc'            => $edit['desc'],
     'navigation'      => $edit['navigation'],
     'target'          => $edit['target'],
     'persist_prodcat' => $edit['persist_prodcat'],
@@ -161,11 +161,9 @@ function askunimelb_widgets_block_save($delta = '', $edit = array()) {
  * Implements hook_block_view().
  */
 function askunimelb_widgets_block_view($delta = '') {
-  // Load settings for the current block.
-  $settings = variable_get('askunimelb_widgets_block_' . $delta, askunimelb_widgets_defaults($delta));
-
   // Add the JavaScript that defines the block.
-  _askunimelb_widgets_js_add($delta, $settings);
+  $params = _askunimelb_widgets_js_settings($delta);
+  drupal_add_js(array('askunimelb_widgets' => array($delta => $params)), 'setting');
 
   // Output block HTML
   return array(
@@ -175,31 +173,41 @@ function askunimelb_widgets_block_view($delta = '') {
 }
 
 /**
- * Helper that adds the wiget JS to the page.
+ * Helper that returns block settings for use in Drupal.behaviours.
  */
-function _askunimelb_widgets_js_add($delta, $settings) {
-  $js = "jQuery(document).ready(function () { RightNow.Client.Controller.addComponent(
-  {
-    p:               '". implode(';', array_filter($settings['p'])) . "',
-    q:               '{$settings['q']}',
-    c:               '{$settings['c']}',
-    search_box:      '". (empty($settings['search_box']) ? 'false' : 'true') . "',
-    number_answers:  '{$settings['number_answers']}',
-    truncate_size:   '{$settings['truncate_size']}',
-    description:     '". (empty($settings['desc']) ? 'false' : 'true') . "',
-    navigation:      '". (empty($settings['navigation']) ? 'false' : 'true') . "',
-    target:          '{$settings['target']}',
-    persist_prodcat: '". (empty($settings['persist_prodcat']) ? 'false' : 'true') . "',
-    div_id:          'askunimelb-widgets-widget-{$delta}',
-    instance_id:     'skw_{$delta}',
-    // Customising code lines go here
-    module:          'KnowledgeSyndication',
-    type:            3
-  },
-  '//studentadmin-unimelb.widget.custhelp.com/ci/ws/get'
-)});";
+function _askunimelb_widgets_js_settings($delta) {
+  static $widgets;
 
-  drupal_add_js($js, array('type' => 'inline'));
+  if (!empty($widgets[$delta])) {
+    return $widgets[$delta];
+  }
+
+  for ($i = 0; $i < variable_get('askunimelb_widgets_blocks', 1); $i++) {
+    // Fetch settings for the current block.
+    $settings = variable_get('askunimelb_widgets_block_' . $i, askunimelb_widgets_defaults($i));
+
+    $params = array(
+      'delta'           => $i,
+      'p'               => implode(';', $settings['p']),
+      'q'               => $settings['q'],
+      'c'               => $settings['c'],
+      'search_box'      => (empty($settings['search_box']) ? 'false' : 'true'),
+      'number_answers'  => $settings['number_answers'],
+      'truncate_size'   => $settings['truncate_size'],
+      'description'     => (empty($settings['desc']) ? 'false' : 'true'),
+      'navigation'      => (empty($settings['navigation']) ? 'false' : 'true'),
+      'target'          => $settings['target'],
+      'persist_prodcat' => (empty($settings['persist_prodcat']) ? 'false' : 'true'),
+      'div_id'          => 'askunimelb-widgets-widget-' . $delta,
+      'instance_id'     => 'skw_' . $delta,
+      'module'          => 'KnowledgeSyndication',
+      'type'            => 3
+    );
+    $widgets[$i] = $params;
+  }
+
+  // Return the block we wanted.
+  return $widgets[$delta];
 }
 
 /**
@@ -208,7 +216,7 @@ function _askunimelb_widgets_js_add($delta, $settings) {
 function askunimelb_widgets_defaults($delta = 0) {
   return array(
     'description'     => t('ask.unimelb Widget: Block @delta', array('@delta' => $delta)),
-    'p'               => '1301,1306',
+    'p'               => array('1301,1306' => '1301,1306'),
     'q'               => '',
     'c'               => '',
     'search_box'      => FALSE,
