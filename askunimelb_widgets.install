@@ -1,0 +1,10 @@
+<?php
+/**
+ * Implements hook_uninstall().
+ */
+function askunimelb_widgets_uninstall() {
+  for ($delta = 0; $delta < variable_get('askunimelb_widgets_blocks', 1); $delta++) {
+    variable_del('askunimelb_widgets_block_' . $delta);
+  }
+  variable_del('askunimelb_widgets_blocks');
+}
