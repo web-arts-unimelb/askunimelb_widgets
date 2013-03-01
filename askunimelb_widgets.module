@@ -19,6 +19,8 @@ function askunimelb_widgets_enable() {
  */
 function askunimelb_widgets_init() {
   drupal_add_js(array('askunimelb_widgets' => array(array('delta' => 'empty'))), 'setting'); 
+
+  drupal_add_css(drupal_get_path('module', 'askunimelb_widgets') . '/askunimelb_widgets.theme.css');
 }
 
 /**
