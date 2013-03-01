@@ -15,13 +15,15 @@ function askunimelb_widgets_enable() {
  *
  * Push an empty entry to the front of the array. This ensures the behaviours
  * property always contain an array of objects, even if there is only a single
- * block on the page. Fixes [#1715296].
+ * block on the page.
  */
 function askunimelb_widgets_init() {
-  drupal_add_js('//studentadmin-unimelb.widget.custhelp.com/euf/rightnow/RightNow.Client.js', 'external');
-  drupal_add_js(drupal_get_path('module', 'askunimelb_widgets') . '/askunimelb_widgets.js', 'file');
+  drupal_add_js(array('askunimelb_widgets' => array(array('delta' => 'empty'))), 'setting'); 
 }
 
+/**
+ * Implements hook_permission().
+ */
 function askunimelb_widgets_permission() {
   return array(
     'administer ask.unimelb widgets' => array(
@@ -161,15 +163,42 @@ function askunimelb_widgets_block_save($delta = '', $edit = array()) {
  * Implements hook_block_view().
  */
 function askunimelb_widgets_block_view($delta = '') {
-  // Add the JavaScript that defines the block.
-  $params = _askunimelb_widgets_js_settings($delta);
-  drupal_add_js(array('askunimelb_widgets' => array($delta => $params)), 'setting');
+
+  // Add the javascript that defines a widget.
+  _askunimelb_widgets_js_add($delta);
 
   // Output block HTML
   return array(
     'subject' => t('ask.unimelb Widget'),
     'content' => '<div id="askunimelb-widgets-widget-' . $delta . '"></div>',
   );
+}
+
+/**
+ * Helper to add the required JS to the page.
+ */
+function _askunimelb_widgets_js_add($delta) {
+
+  // Put the block configurations in a behaviour.
+  //
+  // We merge in an additional settings object on each call to block_view()
+  // so that if a block is shown only for admins its settings are not disclosed
+  // via behaviours to users that ought not be able to access them.
+  $params = _askunimelb_widgets_js_settings($delta);
+  drupal_add_js(array('askunimelb_widgets' => array($delta => $params)), 'setting');
+
+  // Use a static here to determine whether more than one widget block is
+  // to be shown. Only add the javascript files once.
+  static $_askunimelb_widgets_processed;
+
+  if (empty($_askunimelb_widgets_processed)) {
+    // External library JavaScript.
+    drupal_add_js('//studentadmin-unimelb.widget.custhelp.com/euf/rightnow/RightNow.Client.js', 'external');
+    // Widget processor JavaScript.
+    drupal_add_js(drupal_get_path('module', 'askunimelb_widgets') . '/askunimelb_widgets.js', array('scope' => 'footer'));
+
+    $_askunimelb_widgets_processed = TRUE;
+  }
 }
 
 /**
