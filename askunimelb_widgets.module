@@ -18,7 +18,7 @@ function askunimelb_widgets_enable() {
  * block on the page.
  */
 function askunimelb_widgets_init() {
-  drupal_add_js(array('askunimelb_widgets' => array(array('delta' => 'empty'))), 'setting'); 
+  drupal_add_js(array('askunimelb_widgets' => array(array('delta' => 'empty'))), 'setting');
 
   drupal_add_css(drupal_get_path('module', 'askunimelb_widgets') . '/askunimelb_widgets.theme.css');
 }
@@ -39,7 +39,7 @@ function askunimelb_widgets_permission() {
  */
 function askunimelb_widgets_menu() {
   $items = array();
-  $items['admin/config/services/askunimelb_widgets'] = array(
+  $items['admin/settings/askunimelb_widgets'] = array(
     'title' => 'ask.unimelb Widgets',
     'description' => t('Configure ask.unimelb Widget settings'),
     'page callback' => 'drupal_get_form',
@@ -53,98 +53,42 @@ function askunimelb_widgets_menu() {
 }
 
 /**
- * Implements hook_block_info().
+ * Implements hook_block().
  */
-function askunimelb_widgets_block_info() {
-  for ($delta = 0; $delta < variable_get('askunimelb_widgets_blocks', 1); $delta++) {
-    $settings = variable_get('askunimelb_widgets_block_' . $delta, askunimelb_widgets_defaults($delta));
-    $blocks[$delta]['info'] = $settings['description'];
-    $blocks[$delta]['cache'] = DRUPAL_CACHE_PER_USER;
+function askunimelb_widgets_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      for ($delta = 0; $delta < variable_get('askunimelb_widgets_blocks', 1); $delta++) {
+        $settings = variable_get('askunimelb_widgets_block_' . $delta, askunimelb_widgets_defaults($delta));
+        $blocks[$delta]['info'] = $settings['description'];
+        $blocks[$delta]['cache'] = DRUPAL_CACHE_PER_USER;
+      }
+      return $blocks;
+
+    case 'configure':
+      $settings = variable_get('askunimelb_widgets_block_' . $delta, askunimelb_widgets_defaults($delta));
+      return askunimelb_widgets_block_settings_form($settings);
+
+    case 'save':
+      askunimelb_widgets_block_settings_save($delta, $edit);
+      break;
+
+    case 'view':
+      // Add the javascript that defines a widget.
+      _askunimelb_widgets_js_add($delta);
+
+      // Output block HTML
+      return array(
+        'subject' => t('ask.unimelb Widget'),
+        'content' => '<div id="askunimelb-widgets-widget-' . $delta . '"></div>',
+      );
   }
-  return $blocks;
-}
-
-/**
- * Implements hook_block_configure().
- */
-function askunimelb_widgets_block_configure($delta) {
-  $settings = variable_get('askunimelb_widgets_block_' . $delta, askunimelb_widgets_defaults($delta));
-
-  $form['description'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Block description'),
-    '#default_value' => $settings['description'],
-    '#description' => t('A brief description of your block. Used on the <a href="@block-overview-page">block overview page</a>.', array('@block-overview-page' => url('admin/build/block')))
-  );
-  $form['p'] = array(
-    '#type' => 'checkboxes',
-    '#title' => t('Categories to display'),
-    '#options' => askunimelb_widgets_categories(),
-    '#default_value' => $settings['p'],
-  );
-  $form['q'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Keyword'),
-    '#default_value' => $settings['q'],
-  );
-  $form['c'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Custom report'),
-    '#default_value' => $settings['c'],
-    '#disabled' => TRUE,
-  );
-  $form['search_box'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Show search bar'),
-    '#default_value' => $settings['search_box'],
-  );
-  $form['number_answers'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Number of FAQs'),
-    '#default_value' => $settings['number_answers'],
-    '#size' => 3,
-    '#maxlength' => 3,
-    '#description' => t('The width of the cloud menu in pixels.'),
-  );
-  $form['truncate_size'] = array(
-    '#type' => 'textfield',
-    '#title' => t('FAQ description truncation'),
-    '#default_value' => $settings['truncate_size'],
-    '#size' => 3,
-    '#maxlength' => 4,
-    '#description' => t('The height of the cloud menu in pixels.'),
-  );
-  $form['desc'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Show FAQ description'),
-    '#default_value' => $settings['desc'],
-  );
-  $form['navigation'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Show "more" link'),
-    '#default_value' => $settings['navigation'],
-  );
-  $form['target'] = array(
-    '#type' => 'select',
-    '#title' => t('FAQ link target'),
-    '#default_value' => $settings['target'],
-    '#options' => array(
-      '_self' => t('Current window or tab'),
-      '_blank' => t('New window or tab'),
-    ),
-  );
-  $form['persist_prodcat'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Persist with categories across searches'),
-    '#default_value' => $settings['persist_prodcat'],
-  );
-  return $form;
 }
 
 /**
  * Implements hook_block_save().
  */
-function askunimelb_widgets_block_save($delta = '', $edit = array()) {
+function askunimelb_widgets_block_settings_save($delta, $edit) {
   $settings = array(
     'description'     => $edit['description'],
     'p'               => array_filter($edit['p']),
@@ -161,20 +105,6 @@ function askunimelb_widgets_block_save($delta = '', $edit = array()) {
   variable_set('askunimelb_widgets_block_' . $delta, $settings);
 }
 
-/**
- * Implements hook_block_view().
- */
-function askunimelb_widgets_block_view($delta = '') {
-
-  // Add the javascript that defines a widget.
-  _askunimelb_widgets_js_add($delta);
-
-  // Output block HTML
-  return array(
-    'subject' => t('ask.unimelb Widget'),
-    'content' => '<div id="askunimelb-widgets-widget-' . $delta . '"></div>',
-  );
-}
 
 /**
  * Helper to add the required JS to the page.
@@ -195,9 +125,9 @@ function _askunimelb_widgets_js_add($delta) {
 
   if (empty($_askunimelb_widgets_processed)) {
     // External library JavaScript.
-    drupal_add_js('//studentadmin-unimelb.widget.custhelp.com/euf/rightnow/RightNow.Client.js', 'external');
+    drupal_add_js('//studentadmin-unimelb.widget.custhelp.com/euf/rightnow/RightNow.Client.js', 'external', 'footer', FALSE, TRUE, FALSE);
     // Widget processor JavaScript.
-    drupal_add_js(drupal_get_path('module', 'askunimelb_widgets') . '/askunimelb_widgets.js', array('scope' => 'footer'));
+    drupal_add_js(drupal_get_path('module', 'askunimelb_widgets') . '/askunimelb_widgets.js', 'module', 'footer', FALSE, TRUE, FALSE);
 
     $_askunimelb_widgets_processed = TRUE;
   }
@@ -301,4 +231,79 @@ function askunimelb_widgets_categories() {
     '1315,1317' => t('Future study: Application & Admission'),
     '1315,1318' => t('Future study: More About Melbourne'),
   );
+}
+
+/**
+ * Helper that returns a settings form for a block.
+ */
+function askunimelb_widgets_block_settings_form($settings) {
+  $form['description'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Block description'),
+    '#default_value' => $settings['description'],
+    '#description' => t('A brief description of your block. Used on the <a href="@block-overview-page">block overview page</a>.', array('@block-overview-page' => url('admin/build/block')))
+  );
+  $form['p'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Categories to display'),
+    '#options' => askunimelb_widgets_categories(),
+    '#default_value' => $settings['p'],
+  );
+  $form['q'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Keyword'),
+    '#default_value' => $settings['q'],
+  );
+  $form['c'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Custom report'),
+    '#default_value' => $settings['c'],
+    '#disabled' => TRUE,
+  );
+  $form['search_box'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show search bar'),
+    '#default_value' => $settings['search_box'],
+  );
+  $form['number_answers'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Number of FAQs'),
+    '#default_value' => $settings['number_answers'],
+    '#size' => 3,
+    '#maxlength' => 3,
+    '#description' => t('The width of the cloud menu in pixels.'),
+  );
+  $form['truncate_size'] = array(
+    '#type' => 'textfield',
+    '#title' => t('FAQ description truncation'),
+    '#default_value' => $settings['truncate_size'],
+    '#size' => 3,
+    '#maxlength' => 4,
+    '#description' => t('The height of the cloud menu in pixels.'),
+  );
+  $form['desc'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show FAQ description'),
+    '#default_value' => $settings['desc'],
+  );
+  $form['navigation'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show "more" link'),
+    '#default_value' => $settings['navigation'],
+  );
+  $form['target'] = array(
+    '#type' => 'select',
+    '#title' => t('FAQ link target'),
+    '#default_value' => $settings['target'],
+    '#options' => array(
+      '_self' => t('Current window or tab'),
+      '_blank' => t('New window or tab'),
+    ),
+  );
+  $form['persist_prodcat'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Persist with categories across searches'),
+    '#default_value' => $settings['persist_prodcat'],
+  );
+  return $form;
 }
