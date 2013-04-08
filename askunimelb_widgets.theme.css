@@ -1,6 +1,14 @@
 /**
  * Styling!
  */
+.block-askunimelb-widgets .rn_Query {
+  width: 85%;
+}
+
+.block-askunimelb-widgets li.rn_Item {
+  margin-bottom: 1em;
+}
+
 .block-askunimelb-widgets .rn_Title {
   font-weight: bold;
 }
